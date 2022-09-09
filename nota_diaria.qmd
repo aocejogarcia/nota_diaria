@@ -25,8 +25,11 @@ library(lubridate)
 
 epi2020 <- readRDS('data/epi_2020.rds')
 epi2021 <- readRDS('data/epi_2021.rds')
-#sisver.hoy
-#sisver.ayer
+sisver.ayer <- readRDS(paste('data/epi_', format(Sys.Date() - 1, '%d%m%y'), '.rds', sep = ''))
+sisver.ayer <- rbind(epi2020, epi2021, sisver.ayer)
+sisver.hoy <- readRDS(paste('data/epi_', format(Sys.Date(), '%d%m%y'), '.rds', sep = ''))
+sisver.hoy <- rbind(epi2020, epi2021, sisver.hoy)
+
 ```
 
 The `echo: false` option disables the printing of code (only output is displayed).
