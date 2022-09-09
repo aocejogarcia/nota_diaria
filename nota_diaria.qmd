@@ -1,0 +1,32 @@
+---
+title: "Nota diaria COVID-19"
+format: docx
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+library(tidyverse)
+library(lubridate)
+
+epi2020 <- readRDS('data/epi_2020.rds')
+epi2021 <- readRDS('data/epi_2021.rds')
+#sisver.hoy
+#sisver.ayer
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
