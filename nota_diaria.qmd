@@ -30,6 +30,10 @@ sisver.ayer <- rbind(epi2020, epi2021, sisver.ayer)
 sisver.hoy <- readRDS(paste('data/epi_', format(Sys.Date(), '%d%m%y'), '.rds', sep = ''))
 sisver.hoy <- rbind(epi2020, epi2021, sisver.hoy)
 
+sisver.hoy %>%
+  filter(ENTRESI == 'SONORA', 
+         !FOLIO.SINAVE %in% sisver.ayer$FOLIO.SINAVE) %>%
+  mutate(semana = )
 ```
 
 The `echo: false` option disables the printing of code (only output is displayed).
