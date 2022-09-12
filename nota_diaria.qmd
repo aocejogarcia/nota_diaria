@@ -4,36 +4,89 @@ format: docx
 editor: visual
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
-```{r}
-1 + 1
-```
-
-You can add options to executable code like this
-
 ```{r}
 #| echo: false
+#| message: false
 library(tidyverse)
 library(lubridate)
+library(stringr)
+library(stringi)
 
-epi2020 <- readRDS('data/epi_2020.rds')
-epi2021 <- readRDS('data/epi_2021.rds')
-sisver.ayer <- readRDS(paste('data/epi_', format(Sys.Date() - 1, '%d%m%y'), '.rds', sep = ''))
-sisver.ayer <- rbind(epi2020, epi2021, sisver.ayer)
-sisver.hoy <- readRDS(paste('data/epi_', format(Sys.Date(), '%d%m%y'), '.rds', sep = ''))
-sisver.hoy <- rbind(epi2020, epi2021, sisver.hoy)
+meses <- c('Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre')
 
-sisver.hoy %>%
+cc <- 57888 + 66320
+dc <- 5681 + 3774
+
+# Cargar bases de datos ----
+sisver.ayer <- readRDS(paste('data/epi_', format(Sys.Date() - 1, '%d%m%y'), '.rds', sep = '')) %>% mutate(MPIORESI = str_to_title(MPIORESI, locale = 'es'))
+sisver.hoy <- readRDS(paste('data/epi_', format(Sys.Date(), '%d%m%y'), '.rds', sep = '')) %>% mutate(MPIORESI = str_to_title(MPIORESI, locale = 'es'))
+# filtrar base de datos ----
+def.ayer <- sisver.ayer %>% filter(EVOLUCI == 'DEFUNCION', 
+                                                   ENTRESI == 'SONORA',
+                                                   CLASCOVID19 %in% c('CONF ASO', 'CONF ANT', 'CONF DIC', 'CONF LAB'))
+sisver.dif <- sisver.hoy %>%
   filter(ENTRESI == 'SONORA', 
-         !FOLIO.SINAVE %in% sisver.ayer$FOLIO.SINAVE) %>%
-  mutate(semana = )
+         !FOLIO.SINAVE %in% sisver.ayer$FOLIO.SINAVE)
+difconfirmados <- sisver.dif %>%
+  filter(CLASCOVID19 %in% c('CONF ANT', 'CONF ASO', 'CONF LAB', 'CONF DIC')) %>%
+  nrow()
+difdefconf <- sisver.hoy %>%
+  filter(EVOLUCI == 'DEFUNCION', 
+         ENTRESI == 'SONORA',
+         CLASCOVID19 %in% c('CONF ASO', 'CONF ANT', 'CONF DIC', 'CONF LAB')) %>%
+  filter(!FOLIO.SINAVE %in% def.ayer$FOLIO.SINAVE) %>% nrow()
+# Casos confirmados, por sexo ----
+hombres <- sisver.dif %>%
+  filter(CLASCOVID19 %in% c('CONF ANT', 'CONF ASO', 'CONF LAB', 'CONF DIC'),
+         SEXO == 'MASCULINO') %>%
+  nrow()
+mujeres <- sisver.dif %>%
+  filter(CLASCOVID19 %in% c('CONF ANT', 'CONF ASO', 'CONF LAB', 'CONF DIC'),
+         SEXO == 'FEMENINO') %>%
+  nrow()
+
+primer <- ifelse(hombres == 1 & mujeres == 1, 'una mujer y un hombre',
+ifelse(hombres == 1 & mujeres == 0, 'un hombre',
+ifelse(hombres == 0 & mujeres == 1, 'una mujer',
+ifelse(hombres > 1 & mujeres > 1, paste(mujeres, ' mujeres y', hombres, ' hombres', sep = ''),
+ifelse(hombres > 1 & mujeres == 0, paste(hombres, ' hombres', sep = ''),
+ifelse(mujeres > 0, paste(mujeres, ' mujeres', sep = ''), 'no hubo casos'))))))
+
+
+seg <- sisver.dif %>%
+  filter(ENTRESI == 'SONORA', CLASCOVID19 %in% c('CONF ANT', 'CONF ASO', 'CONF DIC', 'CONF LAB')) %>%
+  count(MPIORESI) %>%
+  arrange(desc(n))
+
+segundo <- paste(seg[,1], ' (', seg[,2], '), ', sep = '')
+
+
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+*Nota informativa. `r paste(meses[month(Sys.Date())], ' ', day(Sys.Date()), ' del ', year(Sys.Date()), sep = '')`*
+
+**Casos de COVID-19 en Sonora**
+
+-   **Este día se confirmaron `r difconfirmados` casos de COVID-19, de los cuales fueron `r primer`**
+
+-   Distribuidos en los municipios de `r segundo`
+
+-   Hermosillo (267), Cajeme (95), Navojoa (73), Nogales (47), Caborca (30), San Luis Río Colorado (28), Cananea (22), Puerto Peñasco (21), Agua Prieta y Guaymas (19 cada uno); Magdalena (18), Huatabampo (12), Empalme y Suaqui Grande (8 cada uno); Sahuaripa (6), Pitiquito y Santa Ana (4 cada uno); Álamos y Benjamín Hill (3 cada uno); Baviácora (2), Aconchi, Altar, Arivechi, Divisaderos, Etchojoa, Mazatán y Moctezuma (1 cada uno)
+
+-   Derechohabientes del IMSS (319), SSA (289), ISSSTESON (69) e ISSSTE (19)
+
+-   Al día se acumulan 125,523
+
+-   **Este día se reporta una defunción**, en una mujer residente del municipio de Cajeme, **quien no**
+
+    **contaba con el esquema de vacunación vs SARS-CoV-2**
+
+-   Se acumulan 9,202 defunciones
+
+**Para el contador**
+
+-   Casos confirmados 125,523 `r Sys.Date()`
+
+-   Personas fallecidas 9,202
+
+-   Pacientes hospitalizados durante este día: 2; **ninguno de estos pacientes cuentan con el esquema de vacunación vs SARS-CoV-2**
