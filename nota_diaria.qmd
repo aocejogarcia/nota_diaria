@@ -18,6 +18,7 @@ cc <- 57888 + 66320
 dc <- 5681 + 3774
 
 # Cargar bases de datos ----
+tabla <- readRDS('tabla_municipios_2020-2021.rds')
 sisver.ayer <- readRDS(paste('data/epi_', format(Sys.Date() - 1, '%d%m%y'), '.rds', sep = '')) %>% mutate(MPIORESI = str_to_title(MPIORESI, locale = 'es'))
 sisver.hoy <- readRDS(paste('data/epi_', format(Sys.Date(), '%d%m%y'), '.rds', sep = '')) %>% mutate(MPIORESI = str_to_title(MPIORESI, locale = 'es'))
 # filtrar base de datos ----
