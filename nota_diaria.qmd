@@ -18,7 +18,30 @@ cc <- 57888 + 66320
 dc <- 5681 + 3774
 
 # Cargar bases de datos ----
-tabla <- readRDS('tabla_municipios_2020-2021.rds')
+tabla <- readRDS('tabla_municipios_2020-2021.rds') %>%
+  rename(casost1 = `Casos totales`, casosnf = `Casos no fatales`, casosf = `Casos fatales`)
+casosc <- readRDS(paste('data/epi_', format(Sys.Date(), '%d%m%y'), '.rds', sep = '')) %>%
+  filter(ENTRESI == 'SONORA', CLASCOVID19 %in% c('CONF ASO', 'CONF ANT', 'CONF DIC', 'CONF LAB')) %>%
+  mutate(MPIORESI = str_to_title(MPIORESI, locale = 'es')) %>%
+  mutate(MPIORESI = ifelse(FOLIO.SINAVE == 26217668600, 'San Luis Rio Colorado', MPIORESI)) %>%
+  count(MPIORESI) %>% rename(Municipio = MPIORESI, casos = n)
+defuncionesc <- readRDS(paste('data/epi_', format(Sys.Date(), '%d%m%y'), '.rds', sep = '')) %>%
+  filter(ENTRESI == 'SONORA', CLASCOVID19 %in% c('CONF ASO', 'CONF ANT', 'CONF DIC', 'CONF LAB'), EVOLUCI == 'DEFUNCION') %>%
+  mutate(MPIORESI = str_to_title(MPIORESI, locale = 'es')) %>%
+  mutate(MPIORESI = ifelse(FOLIO.SINAVE == 26217668600, 'San Luis Rio Colorado', MPIORESI)) %>%
+  count(MPIORESI) %>% rename(Municipio = MPIORESI, defunciones = n)
+tabla2 <- full_join(casosc, defuncionesc)
+tabla2[is.na(tabla2)] = 0
+tabla2 <- tabla2 %>%
+  mutate(nofatales = casos - defunciones)
+tabla3 <- full_join(tabla, tabla2) 
+tabla3[is.na(tabla3)] = 0
+tabla3 <- tabla3 %>%
+  mutate('Casos totales' = casos + casost1,
+         'Casos no fatales' = casosnf + nofatales,
+         'Casos fatales' = casosf + defunciones) %>%
+  select(Municipio, 'Casos no fatales', 'Casos fatales', 'Casos totales')
+
 sisver.ayer <- readRDS(paste('data/epi_', format(Sys.Date() - 1, '%d%m%y'), '.rds', sep = '')) %>% mutate(MPIORESI = str_to_title(MPIORESI, locale = 'es'))
 sisver.hoy <- readRDS(paste('data/epi_', format(Sys.Date(), '%d%m%y'), '.rds', sep = '')) %>% mutate(MPIORESI = str_to_title(MPIORESI, locale = 'es'))
 # filtrar base de datos ----
@@ -36,6 +59,11 @@ difdefconf <- sisver.hoy %>%
          ENTRESI == 'SONORA',
          CLASCOVID19 %in% c('CONF ASO', 'CONF ANT', 'CONF DIC', 'CONF LAB')) %>%
   filter(!FOLIO.SINAVE %in% def.ayer$FOLIO.SINAVE) %>% nrow()
+difdefconf.hoy <- sisver.hoy %>%
+  filter(EVOLUCI == 'DEFUNCION', 
+         ENTRESI == 'SONORA',
+         CLASCOVID19 %in% c('CONF ASO', 'CONF ANT', 'CONF DIC', 'CONF LAB')) %>%
+  filter(!FOLIO.SINAVE %in% def.ayer$FOLIO.SINAVE, dmy(FECDEF) >= Sys.Date() - 1)
 # Casos confirmados, por sexo ----
 hombres <- sisver.dif %>%
   filter(CLASCOVID19 %in% c('CONF ANT', 'CONF ASO', 'CONF LAB', 'CONF DIC'),
@@ -49,7 +77,7 @@ mujeres <- sisver.dif %>%
 primer <- ifelse(hombres == 1 & mujeres == 1, 'una mujer y un hombre',
 ifelse(hombres == 1 & mujeres == 0, 'un hombre',
 ifelse(hombres == 0 & mujeres == 1, 'una mujer',
-ifelse(hombres > 1 & mujeres > 1, paste(mujeres, ' mujeres y', hombres, ' hombres', sep = ''),
+ifelse(hombres > 1 & mujeres > 1, paste(mujeres, ' mujeres y ', hombres, ' hombres', sep = ''),
 ifelse(hombres > 1 & mujeres == 0, paste(hombres, ' hombres', sep = ''),
 ifelse(mujeres > 0, paste(mujeres, ' mujeres', sep = ''), 'no hubo casos'))))))
 
@@ -59,8 +87,35 @@ seg <- sisver.dif %>%
   count(MPIORESI) %>%
   arrange(desc(n))
 
-segundo <- paste(seg[,1], ' (', seg[,2], '), ', sep = '')
+segundo <- paste(seg[,1], ' (', seg[,2], ') ', sep = '')
 
+dh <- sisver.dif %>%
+  filter(ENTRESI == 'SONORA', CLASCOVID19 %in% c('CONF ANT', 'CONF ASO', 'CONF DIC', 'CONF LAB')) %>%
+  mutate(DH = case_when(
+    SECTOR == 'ESTATAL' ~ 'ISSSTESON',
+    SECTOR %in% c('IMSS', 'IMSS-OPORTUNIDADES') ~ 'IMSS',
+    SECTOR %in% c('PRIVADA', 'SSA', 'MUNICIPAL') ~ 'SSA',
+    TRUE ~ SECTOR
+  )) %>%
+  count(DH) %>%
+  arrange(desc(n))
+
+tercero <- paste(dh[,1], ' (', dh[,2], ') ', sep = '')
+
+
+
+cuarto <- ifelse(nrow(difdefconf.hoy) == 0, 'no se registraron defunciones',
+ifelse(nrow(difdefconf.hoy) == 1, 'se registró una defunción en',
+paste('se registraron', nrow(difdefconf.hoy), ' defunciones', sep = '')))
+defhom.hoy <- difdefconf.hoy %>%
+  filter(SEXO == 'MASCULINO')
+defmuj.hoy <- difdefconf.hoy %>%
+  filter(SEXO == 'FEMENINO')
+cuarto2 <- ifelse(nrow(defhom.hoy) >= 2 & nrow(defmuj.hoy) >= 2, 
+paste('en ', nrow(defmuj.hoy), ' mujeres y ', nrow(defhom.hoy), ' hombres'),
+ifelse(
+  
+))
 
 ```
 
@@ -72,21 +127,19 @@ segundo <- paste(seg[,1], ' (', seg[,2], '), ', sep = '')
 
 -   Distribuidos en los municipios de `r segundo`
 
--   Hermosillo (267), Cajeme (95), Navojoa (73), Nogales (47), Caborca (30), San Luis Río Colorado (28), Cananea (22), Puerto Peñasco (21), Agua Prieta y Guaymas (19 cada uno); Magdalena (18), Huatabampo (12), Empalme y Suaqui Grande (8 cada uno); Sahuaripa (6), Pitiquito y Santa Ana (4 cada uno); Álamos y Benjamín Hill (3 cada uno); Baviácora (2), Aconchi, Altar, Arivechi, Divisaderos, Etchojoa, Mazatán y Moctezuma (1 cada uno)
+-   Derechohabientes del `r tercero`
 
--   Derechohabientes del IMSS (319), SSA (289), ISSSTESON (69) e ISSSTE (19)
+-   Al día se acumulan `r format(sum(tabla3[,4]), big.mark = ',')`
 
--   Al día se acumulan 125,523
+-   **Este día `r cuarto`**
 
--   **Este día se reporta una defunción**, en una mujer residente del municipio de Cajeme, **quien no**
-
-    **contaba con el esquema de vacunación vs SARS-CoV-2**
+-   **se reporta una defunción**, en una mujer residente del municipio de Cajeme, **quien no contaba con el esquema de vacunación vs SARS-CoV-2**
 
 -   Se acumulan 9,202 defunciones
 
 **Para el contador**
 
--   Casos confirmados 125,523 `r Sys.Date()`
+-   Casos confirmados 125,523
 
 -   Personas fallecidas 9,202
 
